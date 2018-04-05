@@ -36,26 +36,9 @@ class _MessageType(object):
 
 class CommunicatorBase(object):
 
-    def __init__(self, mpi_comm, use_nccl=False):
+    def __init__(self, mpi_comm):
         self.mpi_comm = mpi_comm
         self._init_ranks()
-
-        if use_nccl and not nccl._available:
-            raise RuntimeError(
-                'NCCL is not available. '
-                'Please confirm that NCCL is enabled in CuPy.'
-            )
-
-        self.use_nccl = use_nccl
-
-        # We have to delay the initialization of communicators. This is because
-        # NCCL's communicators use the current CUDA devices at the time of
-        # initialization. Therefore, we have to initialize NCCL communicators
-        # after users set the devices to use.
-        self.inter_mpi_comm = None
-        self.intra_mpi_comm = None
-        if self.use_nccl:
-            self.intra_nccl_comm = None
 
     @property
     def rank(self):
@@ -335,17 +318,3 @@ class CommunicatorBase(object):
         self.intra_size = my_ranks[2]
         self.inter_rank = my_ranks[3]
         self.inter_size = my_ranks[4]
-
-    def _init_comms(self):
-        if self.inter_mpi_comm is not None:
-            assert self.intra_mpi_comm is not None
-            assert not self.use_nccl or self.intra_nccl_comm is not None
-            return
-
-        comms = _communication_utility.init_comms(
-            self.mpi_comm, self.intra_rank, self.intra_size, self.inter_rank,
-            use_nccl=self.use_nccl)
-        self.intra_mpi_comm = comms[0]
-        self.inter_mpi_comm = comms[1]
-        if self.use_nccl:
-            self.intra_nccl_comm = comms[2]

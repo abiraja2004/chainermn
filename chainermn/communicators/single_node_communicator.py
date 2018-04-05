@@ -2,6 +2,7 @@ import chainer.cuda
 
 from chainermn.communicators import _base
 from chainermn.communicators import _memory_utility
+from chainermn.communicators import _communication_utility
 from chainermn import nccl
 
 
@@ -16,6 +17,27 @@ class SingleNodeCommunicator(_base.CommunicatorBase):
 
         self.gpu_buffer_a = _memory_utility.DeviceMemory()
         self.gpu_buffer_b = _memory_utility.DeviceMemory()
+
+        self.intra_nccl_comm = None
+
+    def _init_comms(self):
+        if self.inter_mpi_comm is not None:
+            assert self.intra_nccl_comm is not None
+            return
+
+        if not nccl._available:
+            raise RuntimeError(
+                'NCCL is not available. '
+                'Please confirm that NCCL is enabled in CuPy.'
+            )
+
+        intra_mpi_comm = _communication_utility.init_intra_mpi_comm(
+            self.mpi_comm, self.intra_rank,
+            self.inter_rank)
+        self.inter_mpi_comm = _communication_utility.init_inter_mpi_comm(self.mpi_comm, self.intra_rank,
+                                                                         self.inter_rank)
+        self.intra_nccl_comm = _communication_utility.init_intra_nccl_comm(intra_mpi_comm, self.intra_rank,
+                                                                           self.intra_size)
 
     def broadcast_data(self, model):
         self._init_comms()

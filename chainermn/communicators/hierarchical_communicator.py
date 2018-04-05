@@ -10,9 +10,36 @@ from chainermn import nccl
 class HierarchicalCommunicator(_base.CommunicatorBase):
 
     def __init__(self, mpi_comm):
-        super(HierarchicalCommunicator, self).__init__(mpi_comm, use_nccl=True)
+        super(HierarchicalCommunicator, self).__init__(mpi_comm)
         self.gpu_buffer_a = _memory_utility.DeviceMemory()
         self.gpu_buffer_b = _memory_utility.DeviceMemory()
+
+        # We have to delay the initialization of communicators. This is because
+        # NCCL's communicators use the current CUDA devices at the time of
+        # initialization. Therefore, we have to initialize NCCL communicators
+        # after users set the devices to use.
+        self.intra_mpi_comm = None
+        self.intra_nccl_comm = None
+
+
+    def _init_comms(self):
+        if self.inter_mpi_comm is not None:
+            assert self.intra_nccl_comm is not None
+            return
+
+        if not nccl._available:
+            raise RuntimeError(
+                'NCCL is not available. '
+                'Please confirm that NCCL is enabled in CuPy.'
+            )
+
+        intra_mpi_comm = _communication_utility.init_intra_mpi_comm(
+            self.mpi_comm, self.intra_rank,
+            self.inter_rank)
+        self.inter_mpi_comm = _communication_utility.init_inter_mpi_comm(self.mpi_comm, self.intra_rank,
+                                                                         self.inter_rank)
+        self.intra_nccl_comm = _communication_utility.init_intra_nccl_comm(intra_mpi_comm, self.intra_rank,
+                                                                           self.intra_size)
 
     def broadcast_data(self, model):
         _communication_utility.broadcast_naive(self.mpi_comm, model)

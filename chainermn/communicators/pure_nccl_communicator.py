@@ -17,9 +17,10 @@ class PureNcclCommunicator(_base.CommunicatorBase):
                 'PureNcclCommunicator is only supported on NCCL 2.0+')
         self._init_ranks()
 
-        self.inter_mpi_comm = None
-        self.intra_mpi_comm = None
-        self.intra_nccl_comm = None
+        # We have to delay the initialization of communicators. This is because
+        # NCCL's communicators use the current CUDA devices at the time of
+        # initialization. Therefore, we have to initialize NCCL communicators
+        # after users set the devices to use.
         self.nccl_comm = None
 
         self.gpu_tmp_buffer = _memory_utility.DeviceMemory()
@@ -45,18 +46,15 @@ class PureNcclCommunicator(_base.CommunicatorBase):
         self.inter_size = my_ranks[4]
 
     def _init_comms(self):
-        if self.inter_mpi_comm is not None:
-            assert self.intra_mpi_comm is not None
-            assert self.intra_nccl_comm is not None
-            assert self.nccl_comm is not None
+        if self.nccl_comm is not None:
             return
 
-        self.intra_mpi_comm = _communication_utility.init_intra_mpi_comm(self.mpi_comm, self.intra_rank,
-                                                                         self.inter_rank)
-        self.inter_mpi_comm = _communication_utility.init_inter_mpi_comm(self.mpi_comm, self.intra_rank,
-                                                                         self.inter_rank)
-        self.intra_nccl_comm = _communication_utility.init_intra_nccl_comm(self.intra_mpi_comm, self.intra_rank,
-                                                                           self.intra_size)
+        if not nccl._available:
+            raise RuntimeError(
+                'NCCL is not available. '
+                'Please confirm that NCCL is enabled in CuPy.'
+            )
+
         self.nccl_comm = _communication_utility.init_nccl_comm(self.mpi_comm)
 
     def broadcast_data(self, model):
