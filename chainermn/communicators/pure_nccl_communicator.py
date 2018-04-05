@@ -51,13 +51,13 @@ class PureNcclCommunicator(_base.CommunicatorBase):
             assert self.nccl_comm is not None
             return
 
-        comms = _communication_utility.init_comms(
-            self.mpi_comm, self.intra_rank, self.intra_size, self.inter_rank,
-            use_nccl=True)
-        self.intra_mpi_comm = comms[0]
-        self.inter_mpi_comm = comms[1]
-        self.intra_nccl_comm = comms[2]
-        self.nccl_comm = comms[3]
+        self.intra_mpi_comm = _communication_utility.init_intra_mpi_comm(self.mpi_comm, self.intra_rank,
+                                                                         self.inter_rank)
+        self.inter_mpi_comm = _communication_utility.init_inter_mpi_comm(self.mpi_comm, self.intra_rank,
+                                                                         self.inter_rank)
+        self.intra_nccl_comm = _communication_utility.init_intra_nccl_comm(self.intra_mpi_comm, self.intra_rank,
+                                                                           self.intra_size)
+        self.nccl_comm = _communication_utility.init_nccl_comm(self.mpi_comm)
 
     def broadcast_data(self, model):
         _communication_utility.broadcast_naive(self.mpi_comm, model)
