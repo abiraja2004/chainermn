@@ -11,10 +11,11 @@ import numpy as np
 class PureNcclCommunicator(_base.CommunicatorBase):
 
     def __init__(self, mpi_comm, allreduce_grad_dtype=None):
-        super(PureNcclCommunicator, self).__init__(mpi_comm, True)
-        if nccl.get_version() < 2000:
+        super(PureNcclCommunicator, self).__init__(mpi_comm)
+        if not nccl._available or nccl.get_version() < 2000:
             raise RuntimeError(
                 'PureNcclCommunicator is only supported on NCCL 2.0+')
+
         self._init_ranks()
 
         # We have to delay the initialization of communicators. This is because
@@ -48,12 +49,6 @@ class PureNcclCommunicator(_base.CommunicatorBase):
     def _init_comms(self):
         if self.nccl_comm is not None:
             return
-
-        if not nccl._available:
-            raise RuntimeError(
-                'NCCL is not available. '
-                'Please confirm that NCCL is enabled in CuPy.'
-            )
 
         self.nccl_comm = _communication_utility.init_nccl_comm(self.mpi_comm)
 

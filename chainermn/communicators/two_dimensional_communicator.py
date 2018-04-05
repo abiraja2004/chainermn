@@ -11,8 +11,13 @@ from chainermn import nccl
 class TwoDimensionalCommunicator(_base.CommunicatorBase):
 
     def __init__(self, mpi_comm=mpi4py.MPI.COMM_WORLD):
-        super(TwoDimensionalCommunicator, self).__init__(
-            mpi_comm, use_nccl=True)
+        super(TwoDimensionalCommunicator, self).__init__(mpi_comm)
+        if not nccl._available:
+            raise RuntimeError(
+                'NCCL is not available. '
+                'Please confirm that NCCL is enabled in CuPy.'
+            )
+
         self.gpu_buffer_a = _memory_utility.DeviceMemory()
         self.gpu_buffer_b = _memory_utility.DeviceMemory()
 
@@ -27,12 +32,6 @@ class TwoDimensionalCommunicator(_base.CommunicatorBase):
         if self.inter_mpi_comm is not None:
             assert self.intra_nccl_comm is not None
             return
-
-        if not nccl._available:
-            raise RuntimeError(
-                'NCCL is not available. '
-                'Please confirm that NCCL is enabled in CuPy.'
-            )
 
         intra_mpi_comm = _communication_utility.init_intra_mpi_comm(
             self.mpi_comm, self.intra_rank,
