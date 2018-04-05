@@ -18,7 +18,7 @@ class HierarchicalCommunicator(_base.CommunicatorBase):
         # NCCL's communicators use the current CUDA devices at the time of
         # initialization. Therefore, we have to initialize NCCL communicators
         # after users set the devices to use.
-        self.intra_mpi_comm = None
+        self.inter_mpi_comm = None
         self.intra_nccl_comm = None
 
 
